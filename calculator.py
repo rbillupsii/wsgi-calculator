@@ -40,18 +40,63 @@ To submit your homework:
 
 
 """
+import traceback
 
+def instructions():
+    """
+    Instructions for using the calculator.
+    """
+
+    body = """
+    You  can use this website to add, subtract, multiply, or divide numbers.<br>
+    Change the url to specify the function and numbers that you want to use.<br>
+    You can enter two or more numbers.<br><br>
+    For example:
+        http://localhost:8080/add/9/29
+        http://localhost:8080/sub/22/11
+        http://localhost:8080/mult/5/33
+        http://localhost:8080/div/99/3
+"""
+    body = "<!DOCTYPE html><html>"
+#    body += '<head><script>function myFunction() {document.getElementById("op1").value;}</script></head>'
+    body += "<body><h4>Web Calculator</h4>"
+    body += "<p>You can use this website to add, subtract, multiply, or divide numbers.</p>"
+    body += "<p>Change the url to specify the function and numbers that you want to use.</p>"
+    body += "<p>You can enter two or more numbers.</p>"
+    body += "<p></p>"
+    body += "<p>For example:</p>"
+    body += "<p>http://localhost:8080/add/9/29</p>"
+    body += "<p>http://localhost:8080/sub/22/11</p>"
+    body += "<p>http://localhost:8080/mult/5/33</p>"
+    body += "<p>http://localhost:8080/div/99/3</p>"
+    body += "</body></html>"
+
+    return body
 
 def add(*args):
     """ Returns a STRING with the sum of the arguments """
 
-    # TODO: Fill sum with the correct value, based on the
-    # args provided.
-    sum = "0"
+    return str(sum([int(i) for i in args]))
 
-    return sum
+def subtract(*args):
+    """ Returns a STRING with the difference of the arguments """
 
-# TODO: Add functions for handling more arithmetic operations.
+    return str(int(args[0])-int(args[1]))
+
+def multiply(*args):
+    """ Returns a STRING with the product of the arguments """
+
+    return str(int(args[0])*int(args[1]))
+
+def divide(*args):
+    """ Returns a STRING with the quotient of the arguments """
+
+    try:
+        return str(int(args[0])/int(args[1]))
+    except ZeroDivisionError:
+        raise ZeroDivisionError
+
+    return None
 
 def resolve_path(path):
     """
@@ -59,26 +104,54 @@ def resolve_path(path):
     arguments.
     """
 
-    # TODO: Provide correct values for func and args. The
-    # examples provide the correct *syntax*, but you should
-    # determine the actual values of func and args using the
-    # path.
-    func = add
-    args = ['25', '32']
+    funcs = {
+        "": instructions,
+        "add": add,
+        "subtract": subtract,
+        "multiply": multiply,
+        "divide": divide
+    }
+
+    path = path.strip("/").split("/")
+
+    func_name = path[0]
+    args = path[1:]
+
+    try:
+        func = funcs[func_name]
+        if func != instructions and len(args) <= 1:
+            raise ValueError
+    except KeyError:
+        raise NameError
 
     return func, args
 
 def application(environ, start_response):
-    # TODO: Your application code from the book database
-    # work here as well! Remember that your application must
-    # invoke start_response(status, headers) and also return
-    # the body of the response in BYTE encoding.
-    #
-    # TODO (bonus): Add error handling for a user attempting
-    # to divide by zero.
-    pass
+    headers = [("Content-type", "text/html")]
+    try:
+        path = environ.get('PATH_INFO', None)
+        if path is None:
+            raise NameError
+
+        func, args = resolve_path(path)
+        body = func(*args)
+        status = "200 OK"
+
+    except NameError:
+        status = "404 Not Found"
+        body = "<h1>Not Found</h1>"
+
+    except Exception:
+        status = "500 Internal Server Error"
+        body = "<h1>Internal Server Error</h1>"
+        print(traceback.format_exc())
+
+    finally:
+        headers.append(('Content-length', str(len(body))))
+        start_response(status, headers)
+        return [body.encode('utf8')]
 
 if __name__ == '__main__':
-    # TODO: Insert the same boilerplate wsgiref simple
-    # server creation that you used in the book database.
-    pass
+    from wsgiref.simple_server import make_server
+    srv = make_server("0.0.0.0", 8080, application)
+    srv.serve_forever()
